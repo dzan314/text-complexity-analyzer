@@ -1,0 +1,154 @@
+import re
+from collections import Counter
+import math
+import matplotlib.pyplot as plt
+
+# -------------------------------------------------------------------------
+
+# helper variable to <tokenize> function
+token_pattern = r"[A-Za-z]+(?:'[A-Za-z]+)?"
+
+# returns |list| of tokens (words) from the whole text
+def tokenize(text):
+    return re.findall(token_pattern, text.lower())
+
+# return the |number| of words in the text
+def count_words(text):
+    return len(tokenize(text))
+
+# returns |number| of sentnces in the text
+def count_sentences(text):
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    sentences = [s for s in sentences if s.strip()] # get rid of empty entires
+    return len(sentences)
+
+# returns the average sentence lenghth in words
+def avg_sentence_lenghth(text):
+    sentences = count_sentences(text)
+    if sentences == 0:
+        return 0
+    asl = count_words(text) / sentences
+    return asl
+
+# returns the average word lenghth in the text
+def avg_word_lenghth(text):
+    tokens = tokenize(text)
+    if not tokens:
+        return 0
+    return round(sum(len(w) for w in tokens) / len(tokens), 2)
+
+# using Guiraud's R formula to calculate normalized type-token ratio - better for longer texts, not that prone to inflation
+def guiraud_r(text):
+   tokens = tokenize(text)
+   if not tokens:
+    return 0
+   guir = len(set(tokens)) / math.sqrt(len(tokens))
+   return guir
+
+# returns a |Counter| dict with word frequencies
+def frequency(text):
+    return Counter(tokenize(text))
+
+# returns the |number| of hapax legomena in the text
+def hapax(text):
+    freq = frequency(text)
+    hapax_count = sum(1 for count in freq.values() if count == 1)
+    return hapax_count
+
+# -------------------------------------------------------------------------
+
+def complexity_score(text):
+    x = count_words(text) # helper var
+    V = len(frequency(text)) # helper var
+
+    freqs = list(frequency(text).values())
+    gir = guiraud_r(text)
+
+    # calculationg entropy, taking into account that number of words can be 0 (and log2(0) is undefined)
+    if x != 0:
+        entropy = -sum((f/x) * math.log2(f/x) for f in freqs)
+    else:
+        entropy = 0
+
+    # taking into account that V can be 0
+    if V == 0:
+        entropy_norm = 0 
+        repeat_penalty = 0
+    else:
+        entropy_norm = entropy / math.log2(V+1) # calculating normalized entropy
+        repeat_penalty = 1 - (hapax(text) / V) # calculating repeat word penalty
+
+    max_awl = 12  # assumed maximum average word length
+    max_asl = 40  # assumed maximum average sentence length
+    max_gir = 12  # assumed maximum Guiraud's R value
+
+    # computing normalized values for the components
+    awl_norm = min(avg_word_lenghth(text) / max_awl, 1)
+    asl_norm = min(avg_sentence_lenghth(text)/max_asl, 1)
+    gir_norm = min(gir / max_gir, 1)
+
+    # complexity score calculation
+    complexity_raw = (0.30 * asl_norm + 
+                      0.25 * entropy_norm + 
+                      0.20 * gir_norm +
+                      0.15 * repeat_penalty +
+                      0.10  * awl_norm)
+    complexity_final = 100 * complexity_raw # scaling
+
+    return round(complexity_final, 3) 
+
+# -------------------------------------------------------------------------
+
+def analyze_text(text):
+
+    voc = len(frequency(text))
+    rwr = round(hapax(text) / voc, 2)
+
+    print(f"This text contains {count_sentences(text)} sentences and {count_words(text)} words with an avarage lenghth of {avg_word_lenghth(text)} letters."
+        f" On a one hundred point scale, the complexity score of this text is {complexity_score(text)}") 
+    
+    print()
+    
+    print(f"Additional statistics:\n"
+          f"- Average Sentence Length: {avg_sentence_lenghth(text):.2f} words\n"
+          f"- Rare Word Ratio: {rwr}\n"
+          f"- Normalized Type-Token Ratio - Guiraud's R value: {guiraud_r(text):.4f}\n"
+          f"- Hapax Count: {hapax(text)}")
+
+# -------------------------------------------------------------------------
+
+# plots a histogram of the most frequently appearing (n) words
+def word_frequency_histogram(text, top_n=20):
+    freq = frequency(text)
+    top = freq.most_common(top_n)
+
+    words = [w for w, c in top]
+    counts = [c for w, c in top]
+
+    plt.bar(words, counts)
+    plt.xticks(rotation=45, ha="right")
+    plt.title(f"Top {top_n} most frequently appearing words")
+    plt.xlabel("Words")
+    plt.ylabel("Counts")
+    plt.tight_layout()
+    plt.show(block=True)
+
+# -------------------------------------------------------------------------
+
+# final function combining analysis and plotting, handling empty inputs and printing messages
+def anaylze_and_plot(text):
+    print("Analyzing text...\n")
+    if not text.strip():
+        print("No text provided.\n") # handle empty input
+    else: 
+        # call analysis and plotting functions
+        analyze_text(text)
+        word_frequency_histogram(text)
+
+# -------------------------------------------------------------------------
+
+# main block to run the analysis and plotting
+if __name__ == "__main__":
+    user_input = input("Enter text to analyze: \n")
+    anaylze_and_plot(user_input)
+    
