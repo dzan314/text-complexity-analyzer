@@ -27,7 +27,8 @@ python text_analyzer.py
 Example output:
 This text contains 3 sentences and 13 words with an avarage lenghth of 3.38 letters. (...)
 complexity score of this text is 37.1
-(...)
+
+Additional statistics: (...)
 
 A histogram of the most frequent words will be displayed.
 
